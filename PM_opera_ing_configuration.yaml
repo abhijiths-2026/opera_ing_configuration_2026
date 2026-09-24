@@ -1,0 +1,991 @@
+configuration_id: OPERA55_PM
+configuration_version: '1.11'
+active_configuration_file: PM_opera_ing_configuration_v1.11.yaml
+configuration_alias_file: PM_opera_ing_configuration.yaml
+version_rationale: Filename versioning starts at 1.11 for Phase 1 corpus-discovery (unknown-signature
+  propagation controls, candidate evidence, corpus summaries, and property scorecards). The prior branch tip
+  used configuration_version 1.3.0; jumping to 1.11 is intentional to begin explicit file-version naming, not
+  a skipped sequence of intermediate releases. Future edits must bump the filename and configuration_version
+  together (for example 1.12) and keep the unversioned alias identical to the active versioned file.
+configuration_status: DRAFT
+status_lifecycle:
+- DRAFT
+- APPROVED
+- ACTIVE
+- SUPERSEDED
+- RETIRED
+concurrency_note: Multiple layouts for the same vendor/report may hold ACTIVE simultaneously. SUPERSEDED applies
+  only when a layout is replaced for every property that used it. base_34_field and extended_38_field are concurrent
+  structural variants, not sequential versions. Layout selection is by structural signature only, never by property
+  code.
+activation_blocked_by:
+- role: charge_amount
+  reason: Required structural role 'charge_amount' is not assigned to any field (candidate C48 pending corpus validation).
+  blocks_ingestion: false
+  blocks_bronze_capture: false
+  blocks_structural_validation: false
+  blocks_layout_selection: false
+  blocks_canonical_role_activation: true
+  blocks_canonical_propagation_of_role: true
+  allows_candidate_evidence_collection: true
+description: 'Opera 5.5 on-premises Product Metrics. Phase 1 corpus-discovery configuration: structural validation,
+  candidate evidence collection, and property scorecards across multi-property XML corpora. Candidate roles are
+  not promoted automatically.'
+vendor: Opera
+pms_version: 5.5_on_prem
+report_type: PM
+format: xml
+role_vocabulary_version: '1.0'
+structure:
+  root_node: OSR_LANDSCAPE
+  record_node: G_C9
+  record_path: OSR_LANDSCAPE/LIST_G_C9/G_C9
+  ignored_nodes:
+  - LIST_G_A
+  - G_A
+  - A
+  - CF_LOGO
+  - CF_1
+  ignored_nodes_complete: true
+structure_signature:
+  algorithm: sha256
+  computed_over:
+  - root_node
+  - record_node
+  - sorted list of declared node names observed present in the file
+  presence_not_population: A node present but empty participates in the signature. Value population is evaluated
+    separately in field validation.
+  suppressible_handling: A node declared suppressible:true may be absent without altering the signature. No node
+    in this configuration is currently suppressible.
+  undeclared_nodes_alter_signature: true
+  signature_mismatch_policy: An unknown signature never silently selects the closest layout. It yields PASS_WITH_STRUCTURE_CHANGE
+    only when required canonical roles can still be safely resolved; otherwise FAIL.
+  selection_rule: Exact match against a layout.structure_signature only. Never select by property code. Never select
+    the closest layout.
+  unknown_signature_outcome: PASS_WITH_STRUCTURE_CHANGE when all roles in required_for_unknown_structure can be
+    resolved from known fields that remain present; otherwise FAIL. Closest known structure is compared for reporting
+    only and is never selected.
+propagation_rule:
+  principle: Fail-open for processing, fail-closed for propagation.
+  declared_fields: Propagate to canonical mapping.
+  undeclared_fields: Captured in Bronze and reported. NEVER propagated to canonical.
+  pii_deny_fields: Captured in Bronze. NEVER propagated to canonical. Redacted in quarantine evidence and in the
+    validation report; only the field name and a redaction marker are recorded, never the value.
+  rationale: A newly appearing node cannot be assessed against the PII deny-list because the deny-list only covers
+    known fields. Non-propagation makes leakage structurally impossible rather than dependent on a check.
+pii_rules:
+  deny_list:
+  - C114
+  note: Global known-PII deny list. Always applied before propagation, including when no exact layout is selected.
+    Layout pii_rules.deny_list may add fields but must not remove or override global rules. Blocked fields are reported
+    with reason code known_pii.
+  reason_code: known_pii
+sensitive_detection:
+  masked_payment_card_number:
+    pattern: ^X{4,}\d{4}$
+    description: Masked payment-card PAN remnant (e.g. XXXXXXXXXXXX7962).
+    action: quarantine_or_redact
+mapping_governance:
+  principle: discover first, prove second, promote last
+  phase: phase_1_corpus_validation
+  classifications:
+  - canonical
+  - candidate
+  - informational
+  - unused
+  - sensitive
+  - prohibited
+  promotion_criteria:
+  - consistent semantic meaning across observed files
+  - stable across supported layouts
+  - stable across Opera versions in the corpus
+  - reconciles with expected business behaviour
+  - no conflicting evidence observed
+  promotion_rule: A candidate becomes canonical only after successful validation across the full XML corpus. Representative
+    samples generate hypotheses only; they are not proof.
+  sample_files_policy: Supplied XML samples are representative only. They may seed candidate mappings and validation
+    hypotheses, never permanent canonical assignments.
+  promotion:
+    automatic: false
+    requires_human_review: true
+    evidence_report_required: true
+    reconciliation_required: true
+    config_version_change_required: true
+    note: Validator never promotes candidates automatically. It may emit a recommendation. Promotion requires reviewed
+      configuration change; the active YAML is never modified by the validator.
+canonical_roles:
+  vocabulary:
+  - arrival_date
+  - business_date
+  - charge_amount
+  - charge_code
+  - charge_description
+  - departure_date
+  - external_reference
+  - property_code
+  - quantity
+  - reason_code
+  - reservation_reference
+  required_for_safe_resolution:
+  - business_date
+  - property_code
+  - charge_code
+  assignments_shared_across_layouts:
+    business_date: C12
+    charge_code: C42
+    charge_description: C45
+    property_code: C51
+    external_reference: C93
+    quantity: C102
+    reason_code: C108
+  unassigned_blocking_activation:
+  - charge_amount
+  note: 'Canonical role assignments are only those with classification: canonical. Candidate roles are tracked for
+    corpus evidence and must not activate canonical mapping until promoted. charge_amount remains unassigned; C48
+    is the leading candidate. Unassigned roles do not block XML ingestion or Bronze capture.'
+  presence_policy: presence:required applies only to fields whose removal prevents identity resolution, canonical-role
+    resolution, privacy enforcement, or downstream processing. presence:expected applies to known fields that normally
+    appear but are not required by the business process. Missing expected fields alter the structural signature
+    and yield PASS_WITH_STRUCTURE_CHANGE when required roles remain resolvable; they must not quarantine every row.
+  required_for_unknown_structure:
+  - business_date
+  - property_code
+  - charge_code
+  candidates:
+    charge_amount: C48
+    net_or_pre_tax_amount: C33
+    reservation_reference: C9
+    arrival_date: C15
+    departure_date: C18
+identity:
+  roles:
+  - property_code
+  - business_date
+  filename_token_patterns:
+    property_code: ^[A-Z]{5}$
+    business_date: ^[0-9]{2}-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-[0-9]{2}$
+  note: Filename identity patterns are configuration constants for this source. The engine applies whatever patterns
+    are declared here; it does not embed source-specific catalogues.
+common_field_definitions:
+- field: C9
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: integer
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  note: CANDIDATE reservation_reference; C93 is an alternative. Requires corpus confirmation.
+  classification: candidate
+  candidate_role: reservation_reference
+  evidence_status: corpus_validation_pending
+  validation_phase: phase_1
+- field: C12
+  structural_role: business_date
+  presence: required
+  value_required: true
+  datatype: date
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^\d{2}-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-\d{2}$
+  note: CONFIRMED. Matches filename business date against filename identity checks in observed samples.
+  classification: canonical
+  evidence_status: prior_confirmed_pending_corpus_revalidation
+  validation_phase: phase_1
+- field: C15
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: date
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^\d{2}-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-\d{2}$
+  note: CANDIDATE arrival_date; ordering vs C18 not confirmed across corpus.
+  classification: candidate
+  candidate_role: arrival_date
+  evidence_status: corpus_validation_pending
+  validation_phase: phase_1
+- field: C18
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: date
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^\d{2}-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-\d{2}$
+  note: CANDIDATE departure_date; ordering vs C15 not confirmed across corpus.
+  classification: candidate
+  candidate_role: departure_date
+  evidence_status: corpus_validation_pending
+  validation_phase: phase_1
+- field: C21
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: room_type candidate. C21/C24 pair is unresolved.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C24
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: room_type candidate. C21/C24 pair is unresolved.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C27
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: integer
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+  note: Informational / unclassified pending corpus discovery.
+- field: C30
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: integer
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+  note: Informational / unclassified pending corpus discovery.
+- field: C33
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: decimal
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  note: CANDIDATE net_or_pre_tax_amount. Sometimes equals C48 but not consistently. Must not be treated as charge_amount.
+  classification: candidate
+  candidate_role: net_or_pre_tax_amount
+  evidence_status: corpus_validation_pending
+  validation_phase: phase_1
+- field: C36
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: decimal
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  note: CANDIDATE related_amount. Not charge_amount; C48 is the leading charge_amount candidate.
+  classification: candidate
+  candidate_role: related_amount
+  evidence_status: corpus_validation_pending
+  validation_phase: phase_1
+- field: C39
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: quarantine_or_redact
+  participates_in_signature: true
+  classification: sensitive
+  detection:
+  - masked_payment_card_number
+  note: SENSITIVE. May contain company/city-ledger names OR masked payment-card data. Pattern-based detection only;
+    not a global deny. Not a business-role mapping.
+  evidence_status: pattern_policy_active
+  validation_phase: phase_0_structure
+- field: C42
+  structural_role: charge_code
+  presence: required
+  value_required: true
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: CONFIRMED. Property-specific transaction code identifier, paired with C45. Typed as string so values such
+    as A100, ROOM-UPSELL, and 0142 remain valid and leading zeros are preserved. Opaque to Phase 0. C42 may
+    participate in validation and identity-resolution gating (required_for_unknown_structure / charge_code) but
+    is not permitted to propagate for an unknown structure signature; only property_code and business_date
+    identity roles may propagate when the signature is unknown.
+  classification: canonical
+  evidence_status: prior_confirmed_pending_corpus_revalidation
+  validation_phase: phase_1
+- field: C45
+  structural_role: charge_description
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: CONFIRMED. Property-specific label paired with C42.
+  classification: canonical
+  evidence_status: prior_confirmed_pending_corpus_revalidation
+  validation_phase: phase_1
+- field: C48
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: decimal
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  note: 'CANDIDATE charge_amount (posted transaction value hypothesis from samples). Evidence status: corpus_validation_pending.
+    Not canonical.'
+  classification: candidate
+  candidate_role: charge_amount
+  evidence_status: corpus_validation_pending
+  validation_phase: phase_1
+  compared_fields:
+  - C33
+  - C36
+- field: C51
+  structural_role: property_code
+  presence: required
+  value_required: true
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: CONFIRMED. Matches filename property against filename identity checks in observed samples.
+  classification: canonical
+  evidence_status: prior_confirmed_pending_corpus_revalidation
+  validation_phase: phase_1
+- field: C54
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: Duplicates C51 in all observed data.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C57
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+  note: Informational / unclassified pending corpus discovery.
+- field: C60
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+  note: Informational / unclassified pending corpus discovery.
+- field: C63
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+  note: Informational / unclassified pending corpus discovery.
+- field: C66
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: Y/N flag.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C69
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: integer
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+  note: Informational / unclassified pending corpus discovery.
+- field: C72
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: employee_identifier candidate. Carries system tokens (*MARSHA*, *HILSTAR*) as well as user IDs.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C75
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: employee_identifier candidate.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C78
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: market_segment candidate.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C81
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: market_segment candidate.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C84
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: market_segment candidate.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C87
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: Empty in 100% of observed rows. Not declared always-null; presence is structural.
+  classification: unused
+  evidence_status: structurally_present_typically_empty
+  validation_phase: phase_0_structure
+- field: C90
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: Empty in 100% of observed rows. MUST NOT be declared numeric.
+  classification: unused
+  evidence_status: structurally_present_typically_empty
+  validation_phase: phase_0_structure
+- field: C93
+  structural_role: external_reference
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: CONFIRMED string. Integer at four properties, hyphenated composite at SOFHI. Numeric datatype would fail.
+  classification: canonical
+  evidence_status: prior_confirmed_pending_corpus_revalidation
+  validation_phase: phase_1
+- field: C96
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+  note: Informational / unclassified pending corpus discovery.
+- field: C99
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: Populated at TIAMC only (3.2%). Not always-null.
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C102
+  structural_role: quantity
+  presence: expected
+  value_required: false
+  datatype: integer
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  note: CONFIRMED. Negative values observed (reversals).
+  classification: canonical
+  evidence_status: prior_confirmed_pending_corpus_revalidation
+  validation_phase: phase_1
+- field: C105
+  structural_role: null
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: 'Content convention varies by property: department codes at some, user IDs at others. Not safely role-assignable.'
+  classification: informational
+  evidence_status: discovery_pending
+  validation_phase: phase_1
+- field: C108
+  structural_role: reason_code
+  presence: expected
+  value_required: false
+  datatype: string
+  suppressible: false
+  pii_policy: allow
+  participates_in_signature: true
+  note: CONFIRMED. 13-value vocabulary across 5 properties.
+  classification: canonical
+  evidence_status: prior_confirmed_pending_corpus_revalidation
+  validation_phase: phase_1
+validation_rules:
+  row_quarantine_triggers:
+  - A field with presence:required is absent
+  - A field with presence:required and value_required:true is null or blank
+  - A value fails its declared datatype format assertion
+  - The row does not contain the required structural element set
+  - A required structural role cannot be resolved for the row
+  row_quarantine_non_triggers:
+  - A charge code has not been seen before
+  - A charge code differs from another property's
+  - A charge description is property-specific
+  - No business classification has been assigned
+  - An undeclared node is present
+  - A field with value_required:false is empty
+  - A field with presence:expected is absent
+  duplicate_rules:
+    file_hash_duplicate_behavior: FAIL
+    row_duplicate_behavior: INFORMATIONAL
+    note: No column in the PM extract is unique per row. Exact duplicate rows occur legitimately (repeat postings)
+      at 1-67% across observed files. Duplicate counts are reported only and never degrade or fail the file. Deferred
+      pending the canonical transaction-identity strategy.
+  fail_conditions:
+  - File missing or empty
+  - Malformed XML
+  - Root node is not OSR_LANDSCAPE
+  - Record node G_C9 absent
+  - Zero records
+  - Property cannot be resolved
+  - Report type cannot be resolved
+  - Business date cannot be resolved
+  - Identity conflict between filename, path and content
+  - Duplicate file hash
+  - A required structural role cannot be resolved for the file
+  - No valid rows remain
+  outcomes:
+    PASS: File and all rows passed. Structure matches the approved configuration.
+    PASS_WITH_QUARANTINE: File processed. Some rows quarantined.
+    PASS_WITH_STRUCTURE_CHANGE: File processed successfully. Structure does not exactly match any approved layout
+      signature, but required canonical roles were safely resolved. Undeclared and deny-listed fields were captured
+      in Bronze and not propagated. Engineering review required.
+    FAIL: Unsafe to process. Includes hard fail conditions, or an unknown structure where required canonical roles
+      cannot be safely resolved.
+    DEGRADED: File processed with recoverable operational issues (resolvable non-standard filename, missing optional
+      field, metadata warning).
+  presence_semantics:
+    required: Absence fails identity/role/privacy/downstream safety checks for the file or row.
+    expected: Known field that normally appears. Absence changes the structural signature and is handled as PASS_WITH_STRUCTURE_CHANGE
+      when required roles remain resolvable; it does not quarantine all rows.
+  blocking_reason_codes:
+  - known_pii
+  - undeclared_field
+  - invalid_value
+  - identity_conflict
+  - required_role_unresolved
+  - malformed_structure
+  - sensitive_pattern
+  blocking_reason_severity:
+  - malformed_structure
+  - identity_conflict
+  - required_role_unresolved
+  - known_pii
+  - sensitive_pattern
+  - undeclared_field
+  - invalid_value
+  report:
+    json_suffix: .validation-report.json
+    summary_suffix: .validation-summary.txt
+    fields:
+    - file_name
+    - property_code
+    - business_date
+    - processing_timestamp
+    - configuration_file
+    - configuration_version
+    - selected_layout
+    - signature_received
+    - signature_matched
+    - result
+    - rows_received
+    - rows_valid
+    - rows_quarantined
+    - rows_propagated
+    - root_node
+    - record_node
+    - canonical_roles_resolved
+    - canonical_roles_unresolved
+    - added_nodes
+    - missing_nodes
+    - undeclared_nodes
+    - known_pii_fields_detected
+    - blocked_from_propagation
+    - blocking_reasons
+    - row_validation_failures
+    - identity_failures
+    - quarantine_location
+    - processing_duration_ms
+    - configuration_checksum
+    - validation_decision
+    metrics_note: All counts and values are calculated from the file being processed. Corpus observation totals
+      are not runtime constants.
+layouts:
+- id: base_34_field
+  status: DRAFT
+  description: 34-field base PM structure (C9 through C108).
+  legacy_configuration_id: OPERA55_PM_V1
+  observed_at_properties:
+  - PTYRI
+  - SALCY
+  - SOFHI
+  - TIAMC
+  structure_signature: 078c7b13a4dceb24
+  field_count: 34
+  additional_field_definitions: []
+  pii_rules:
+    deny_list: []
+    extends_global: true
+    note: Effective deny list = global pii_rules.deny_list ∪ this list. Base layout declares no additional PII fields.
+- id: extended_38_field
+  status: DRAFT
+  description: 38-field extended PM structure. Same C9-C108 base plus C111, C114, C117, C120. Concurrent with base_34_field;
+    does not supersede it.
+  legacy_configuration_id: OPERA55_PM_V2
+  observed_at_properties:
+  - SRQRZ
+  structure_signature: 40fe3b3966b60fdf
+  field_count: 38
+  additional_field_definitions:
+  - field: C111
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Empty in 100% of observed rows. Structural presence distinguishes this configuration.
+    classification: unused
+    evidence_status: structurally_present_typically_empty
+    validation_phase: phase_0_structure
+  - field: C114
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: deny
+    participates_in_signature: true
+    note: FREE-TEXT GUEST NOTES. Populated in 100% of rows, up to 494 chars. Contains guest names, room numbers
+      and commercial negotiations. Must never propagate.
+    classification: prohibited
+    evidence_status: policy_confirmed
+    validation_phase: phase_0_structure
+  - field: C117
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Empty in 100% of observed rows.
+    classification: unused
+    evidence_status: structurally_present_typically_empty
+    validation_phase: phase_0_structure
+  - field: C120
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Y/N flag.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_1
+  pii_rules:
+    deny_list: []
+    extends_global: true
+    note: Effective deny list = global pii_rules.deny_list ∪ this list. C114 is classified globally as known PII
+      and remains blocked even when this layout is not selected.
+structure_change_report:
+  emitted_when: Received signature does not match the approved signature
+  contents:
+  - configuration_id
+  - configuration_version
+  - approved_signature
+  - received_signature
+  - expected_node_set
+  - additional_nodes_detected
+  - missing_nodes_detected
+  - suppressible_nodes_absent
+  - all_required_roles_resolved
+  - propagation_decision_per_undeclared_node
+  - rows_processed
+  - rows_quarantined
+  - recommended_engineering_action
+  alerting: Deduplicated by received_signature. The first occurrence of a signature raises one engineering work
+    item. Further occurrences are suppressed until the configuration is updated or the signature changes again.
+    Alerting is never per-file.
+  ageing:
+  - day: 0
+    action: Work item created
+  - day: 7
+    action: Reminder
+  - day: 14
+    action: Raised to high priority
+  - day: 30
+    action: Architecture escalation
+  ageing_note: Ageing affects governance only. Ingestion continues unaffected at every stage.
+audit_evidence_per_file:
+- validation_run_id
+- configuration_id
+- configuration_version
+- selected_layout_id
+- approved_structure_signature
+- received_structure_signature
+- validator_version
+- validation_timestamp
+- source_file_name
+- source_file_hash
+- property_id
+- report_type
+- business_date
+- total_rows
+- valid_rows
+- quarantined_rows
+- blocked_from_propagation
+- outcome
+routing:
+  bronze: /bronze/{property_id}/PM/{business_date}/{validation_run_id}/{original_filename}
+  pass: /phase0/validated/{property_id}/PM/{business_date}/{validation_run_id}/{original_filename}
+  structure_change: /phase0/structure_change/{property_id}/PM/{business_date}/{validation_run_id}/{original_filename}
+  degraded: /phase0/degraded/{property_id}/PM/{business_date}/{validation_run_id}/{original_filename}
+  fail: /phase0/quarantine/{property_id}/PM/{business_date}/{validation_run_id}/{original_filename}
+  row_quarantine: /phase0/quarantine_rows/{property_id}/PM/{business_date}/{validation_run_id}/failed_records.json
+  structure_change_report: /phase0/structure_reports/{property_id}/PM/{business_date}/{validation_run_id}/structure_change.json
+out_of_scope:
+  note: Handled elsewhere. Not Phase 0 responsibilities.
+  source_ingestion_and_monitoring:
+  - File arrival detection
+  - Arrival SLA
+  - Row-count baseline and volume anomaly detection
+  - Filename parsing and property resolution
+  - Duplicate-delivery detection
+  registry_supplied:
+  - currency
+  - property_timezone
+  - arrival_sla_cutoff
+  - property_status
+  - tenant_id
+  phase_1_canonical_mapping:
+  - Charge-code interpretation
+  - Revenue classification
+  - product_category / posting_type / charge_type derivation
+  - Business rules
+  kpi_layer:
+  - Product metrics
+  - Employee metrics
+  - BookMax reconciliation
+known_residual_risk:
+  id: ORDINAL_SHIFT_ROLE_DRIFT
+  description: Oracle Reports names data-model columns by ordinal position in the report SELECT. A column inserted
+    mid-SELECT shifts every subsequent C-number. The change presents as additive (nodes added, none removed, all
+    declared nodes still present) while a structural role silently points at a different column.
+  detectable_by:
+  - Datatype assertion failure where the new column has a different type
+  - Format assertion failure
+  - Structure-change report showing additional nodes
+  not_detectable_by: Any automated check, where the displaced column has the same datatype and format. A decimal
+    replaced by a different decimal will pass every validation in this configuration.
+  mitigation: Structure-change reports must be actioned rather than filed. The ageing schedule exists for this reason.
+  upstream_cure: Mandate aliased columns in the Opera report build standard (SELECT x AS AGENT_ID) so elements carry
+    semantic names and ordinal position becomes irrelevant.
+activation_gate_policy:
+  summary: Unassigned canonical roles block only activation and canonical propagation of that role. XML ingestion,
+    Bronze capture, structural validation, layout selection, and candidate evidence collection continue so the corpus
+    can be processed.
+  ingestion: always_allowed_when_structure_parseable
+  bronze_capture: always_allowed_including_candidate_and_undeclared_fields
+  canonical_propagation: only_assigned_canonical_roles
+unknown_signature_policy:
+  ingestion: allowed
+  bronze_capture: allowed
+  structural_validation: allowed
+  candidate_evidence_collection: allowed
+  canonical_business_propagation: blocked
+  identity_propagation:
+    allowed_roles:
+    - property_code
+    - business_date
+    note: charge_code (C42) may still be used for validation and identity-resolution gating under
+      required_for_unknown_structure, but C42 is not an allowed identity_propagation role and must not
+      propagate when the structure signature is unknown.
+  outcome: PASS_WITH_STRUCTURE_CHANGE
+canonical_scope:
+  approved_signatures_only: true
+  unknown_signatures: blocked
+candidate_evidence:
+  enabled: true
+  fields:
+  - field
+  - candidate_role
+  - records_present
+  - records_populated
+  - population_rate
+  - datatype_pass_rate
+  - null_rate
+  - zero_rate
+  - negative_rate
+  - minimum
+  - maximum
+  - distinct_value_count
+  - semantic_conflicts
+  - compared_fields
+  - property_count
+  - layout_count
+  - opera_version_count
+  - evidence_status
+  - confidence_score
+  - recommendation
+  comparisons:
+  - field: C48
+    candidate_role: charge_amount
+    compare_against:
+    - C33
+    - C36
+    note: Compare population and value behaviour; do not infer C48 is canonical.
+corpus_reporting:
+  enabled: true
+  group_by:
+  - property_code
+  - selected_layout
+  - received_structure_signature
+  - opera_version
+  outputs:
+  - corpus_summary.json
+  - property_scorecards.json
+  - field_profile.json
+  - candidate_evidence.json
+  - structure_inventory.json
+  - quarantined_findings.json
+  daily_operational_report:
+    include_statuses:
+    - PASS_WITH_QUARANTINE
+    - FAIL
+    note: Phase 1 daily ops report consolidates only quarantined and failed issues requiring investigation.
+property_scorecard:
+  fields:
+  - property_code
+  - processing_date
+  - files_received
+  - files_processed
+  - files_passed
+  - files_passed_with_structure_change
+  - files_quarantined
+  - files_failed
+  - records_processed
+  - records_quarantined
+  - structural_issues
+  - sensitive_findings
+  - prohibited_findings
+  - unknown_signatures
+  - candidate_conflicts
+  - overall_status
+  statuses:
+  - PASS
+  - PASS_WITH_STRUCTURE_CHANGE
+  - PASS_WITH_QUARANTINE
+  - FAIL
+candidate_confidence:
+  method: deterministic_weighted_coverage
+  weights:
+    property_coverage: 0.25
+    file_coverage: 0.15
+    layout_coverage: 0.15
+    datatype_pass_rate: 0.25
+    population_consistency: 0.1
+    conflict_penalty: 0.1
+  conflict_penalty_formula: 1 / (1 + semantic_conflicts)
+  recommendation_rule: Always DO_NOT_PROMOTE when mapping_governance.promotion.automatic is false. Phase 1 score
+    measures evidence strength only; governance forces DO_NOT_PROMOTE. Later recommendation values may distinguish
+    INSUFFICIENT_EVIDENCE, CONFLICT_REQUIRES_REVIEW, and ELIGIBLE_FOR_HUMAN_REVIEW without enabling automatic
+    promotion. Promotion still requires a reviewed configuration change.
+  note: confidence_score = sum(weight_i * metric_i). No LLM or subjective scoring. semantic_conflicts reduce the
+    conflict_penalty term.
