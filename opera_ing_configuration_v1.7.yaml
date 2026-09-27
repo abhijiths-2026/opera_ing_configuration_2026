@@ -1,0 +1,1793 @@
+configuration_id: OPERA_ING_LM_PM
+configuration_version: '1.7'
+active_configuration_file: opera_ing_configuration_v1.7.yaml
+configuration_alias_file: opera_ing_configuration.yaml
+version_rationale: '1.7 Opera-ING Phase 0 config: promote C48 → charge_amount as canonical PM assignment
+  (was candidate/PROMOTED_V1_7 in 1.6). Removes charge_amount_unassigned activation blocker. Still observe_only
+  for propagation until broader activation policy changes; structural role is now assigned.'
+configuration_status: DRAFT
+status_lifecycle:
+- DRAFT
+- APPROVED
+- ACTIVE
+- SUPERSEDED
+- RETIRED
+phase: phase_0_validation
+description: Opera 5.5 on-premises LM + PM XML extracts for the Opera-ING ETL — Phase 0 observe-only structural
+  governance. Batch expectation is LM + PM per property per business date. Engine must not embed property-specific
+  business rules; all contract rules live in this configuration.
+vendor: Opera
+pms_version: 5.5_on_prem
+report_family: OPERA_ING
+etl: Opera-ING
+format: xml
+encoding: UTF-8
+role_vocabulary_version: '1.0'
+artifact_pins:
+  corpus_index:
+    path: sources/opera_ing/Opera_ING_Corpus_Index_v1.6.json
+    version: '1.0'
+    role: Fingerprint registry for LM and PM structural variants. Absent at v1.6 — layouts[] is the interim
+      registry.
+    mutate: false
+    status: pending
+  validation_report_spec:
+    path: sources/opera_ing/Opera_ING_Phase0_Validation_Report_Spec_v1.6.md
+    version: '1.0'
+    role: Human brief including discovery isolation + growth counters.
+    mutate: false
+    status: pending
+  validation_report_output:
+    json: reports/opera_ing/validation_report_v1.6.json
+    md: reports/opera_ing/validation_report_v1.6.md
+    report_version: '1.0'
+  corpus_path: examples/opera_ing_v1.6/corpus/
+  rule_catalogue:
+    path: sources/opera_ing/Opera_ING_Phase0_Rule_Catalogue_v1.6.json
+    version: '1.0'
+    role: Machine-readable rule IDs, thresholds, dispositions. Authoritative for validators. Spec prose
+      is human brief only.
+    mutate: false
+    status: pending
+  authoritative_config_format: yaml
+  generated_formats:
+  - json
+  format_sync:
+    authoritative: opera_ing_configuration_v1.7.yaml
+    generated:
+    - opera_ing_configuration_v1.7.json
+    - opera_ing_configuration.yaml
+    - opera_ing_configuration.json
+    note: Loader must read YAML (or JSON generated from it). Never hand-edit JSON or alias files.
+  discovery_results_output:
+    json: reports/opera_ing/discovery_results_v1.6.json
+    discovery_version: '1.0'
+    isolation_rule: never_write_discovered_settings_into_configuration
+  interim_fingerprint_registry:
+    path: opera_ing_configuration_v1.7.yaml#layouts
+    role: Approved structural fingerprints for the Phase0 engine until the corpus index is pinned and
+      loaded.
+    layout_count: 3
+    mutate: false
+    discovery_isolation: Auto-discovered settings must go to discovery_results only; promoting a fingerprint
+      into layouts[] requires an explicit configuration change.
+  seed_corpus:
+    property_name: Sheraton Asuncion
+    property_code: ASUSI
+    aws_account: fpg-proj-ing-prod
+    bucket: s3://ing-marriott-useast-prod/OPERA/raw_data/ASUSI/
+    etl: Opera-ING
+    note: Seed identifies the first property used to exercise this pack. It must never drive layout selection
+      or hardcode property rules in the engine.
+concurrency_note: Multiple layouts for the same report type may hold ACTIVE simultaneously. SUPERSEDED
+  applies only when a layout is replaced for every property that used it. base_34_field and extended_38_field
+  are concurrent PM structural variants, not sequential versions. Selection is by structural signature
+  only — never by property code, never by closest field-count.
+run_mode: observe_only
+observe_only_constraints:
+- no_canonical_writes
+- no_registry_mutation
+- no_index_mutation
+- no_binding_created_by_classifier
+- dispositions_must_cite_rule_id_and_evidence
+- no_discovered_settings_written_to_configuration
+- discovery_counters_required_every_run
+- no_property_specific_rules_in_engine
+propagation_rule:
+  principle: Fail-open for Bronze capture, fail-closed for canonical propagation.
+  declared_fields: Propagate to canonical mapping only when Phase advances beyond observe_only and role
+    classification is canonical.
+  undeclared_fields: Bronze only. Never canonical.
+  pii_deny_fields: Bronze only. Never canonical. Values redacted in reports (hash/shape only).
+  unbound_slot_default:
+    disposition: PASS_WITH_STRUCTURE_CHANGE
+    canonical: blocked
+    principle: deny_by_default
+  rationale: Newly appearing XML nodes cannot be assessed against the PII deny-list. Non-propagation makes
+    leakage structurally impossible.
+fingerprint_policy:
+  source: artifact_pins.corpus_index
+  interim_registry: layouts
+  order_sensitive: false
+  presence_based: true
+  algorithm: sha256_utf8_join_0x1f
+  computed_over: root_node + record_node + sorted list of declared node names observed present in the
+    file (presence, not population)
+  match_rule: Exact structural signature match against a layout.structure_signature scoped by report_type.
+    Never select by property code. Never select the closest layout.
+  rejected_heuristics:
+  - property code
+  - closest field-count match
+  - set-equality without declared root/record context
+  - hardcoded per-property business rules in the engine
+  property_onboarding:
+    binding_base_properties: 0
+    assessment: seed_only
+    seed_property: ASUSI
+    expected_fingerprint_miss: An unknown signature on a newly onboarded property is the designed fail-closed
+      / structure-change outcome, not an operational defect. Do not loosen matching; add an approved layout
+      via configuration change.
+    unknown_fingerprint_disposition: PASS_WITH_STRUCTURE_CHANGE
+    clears_when: registry entry for the observed structural signature
+reports:
+  expected_types:
+  - LM
+  - PM
+  required_file: true
+  missing_file_disposition: FAIL
+  batch:
+    required_report_types:
+    - LM
+    - PM
+    incomplete_batch_behavior: FAIL
+    note: Two files expected per property per business date (LM_<PROP>_<MMDDYYYY>.xml and PM_<PROP>_<MMDDYYYY>.xml).
+  grains:
+    LM:
+    - CONSIDERED_DATE
+    PM:
+    - property_code
+    - business_date
+    - charge_code
+  business_date:
+    LM:
+      filename_token_format: MMDDYYYY
+      content_field: CONSIDERED_DATE
+      content_format: DD-MMM-YY
+    PM:
+      filename_token_format: MMDDYYYY
+      content_field: C12
+      content_format: DD-MMM-YY
+filename:
+  LM:
+    pattern: ^LM_(?P<property_id>[A-Z0-9]+)_(?P<business_date>[0-9]{8})\.xml$
+    date_format_in_filename: MMDDYYYY
+    property_id_source: filename
+    business_date_source: filename
+  PM:
+    pattern: ^PM_(?P<property_id>[A-Z0-9]+)_(?P<business_date>[0-9]{8})\.xml$
+    date_format_in_filename: MMDDYYYY
+    property_id_source: filename
+    business_date_source: filename
+  s3_path_pattern: OPERA/raw_data/{property_id}/{LM|PM}_{property_id}_{MMDDYYYY}.xml
+  note: Identity tokens come from the filename (and path segment). Layout selection never uses property_id.
+structure_by_report_type:
+  LM:
+    root_node: HISTORY_FORECAST
+    record_node: G_CONSIDERED_DATE
+    record_path: HISTORY_FORECAST/LIST_G_GPAGEID/G_GPAGEID/LIST_G_REC_TYPE/G_REC_TYPE/LIST_G_CONSIDERED_DATE/G_CONSIDERED_DATE
+    required_paths:
+    - LIST_G_GPAGEID
+    - LIST_G_GPAGEID/G_GPAGEID
+    - LIST_G_GPAGEID/G_GPAGEID/LIST_G_REC_TYPE
+    - LIST_G_GPAGEID/G_GPAGEID/LIST_G_REC_TYPE/G_REC_TYPE
+    - LIST_G_GPAGEID/G_GPAGEID/LIST_G_REC_TYPE/G_REC_TYPE/LIST_G_CONSIDERED_DATE
+    - LIST_G_GPAGEID/G_GPAGEID/LIST_G_REC_TYPE/G_REC_TYPE/LIST_G_CONSIDERED_DATE/G_CONSIDERED_DATE
+    required_nodes_strict: true
+  PM:
+    root_node: OSR_LANDSCAPE
+    record_node: G_C9
+    record_path: OSR_LANDSCAPE/LIST_G_C9/G_C9
+    ignored_nodes:
+    - LIST_G_A
+    - G_A
+    - A
+    - CF_LOGO
+    - CF_1
+    ignored_nodes_complete: true
+structure_signature:
+  algorithm: sha256_utf8_join_0x1f
+  presence_not_population: A node present but empty participates in the signature. Value population is
+    evaluated separately in field validation.
+  selection_rule: Exact match against a layout.structure_signature for the resolved report_type only.
+    Never select by property code. Never select the closest layout.
+  unknown_signature_outcome: PASS_WITH_STRUCTURE_CHANGE when required identity/canonical roles remain
+    resolvable; otherwise FAIL.
+  undeclared_nodes_alter_signature: true
+pii_rules:
+  deny_list:
+  - C114
+  note: Global known-PII deny list. Always applied before propagation, including when no exact layout
+    is selected. Layout pii_rules.deny_list may add fields but must not remove or override global rules.
+    Blocked fields are reported with reason code known_pii.
+  reason_code: known_pii
+sensitive_detection:
+  masked_payment_card_number:
+    pattern: ^X{4,}\d{4}$
+    description: Masked payment-card PAN remnant (e.g. XXXXXXXXXXXX7962).
+    action: quarantine_or_redact
+canonical_roles:
+  vocabulary:
+  - arrival_date
+  - business_date
+  - charge_amount
+  - charge_code
+  - charge_description
+  - departure_date
+  - external_reference
+  - property_code
+  - quantity
+  - reason_code
+  - reservation_reference
+  required_for_safe_resolution:
+    LM:
+    - business_date
+    PM:
+    - business_date
+    - property_code
+    - charge_code
+    - charge_amount
+  assignments_shared_across_layouts:
+    LM:
+      business_date: CONSIDERED_DATE
+    PM:
+      business_date: C12
+      charge_code: C42
+      charge_description: C45
+      property_code: C51
+      external_reference: C93
+      quantity: C102
+      reason_code: C108
+      charge_amount: C48
+  required_for_unknown_structure:
+    LM:
+    - business_date
+    PM:
+    - business_date
+    - property_code
+    - charge_code
+  candidates:
+    net_or_pre_tax_amount: C33
+    reservation_reference: C9
+    arrival_date: C15
+    departure_date: C18
+  note: 'Phase 0 observe_only: most candidate roles remain evidence-only. charge_amount is CANONICAL assigned
+    to C48 as of v1.7 (promoted from candidate). Canonical propagation of roles may still be gated by
+    observe_only activation policy.'
+identity:
+  roles:
+  - property_code
+  - business_date
+  filename_token_patterns:
+    property_code: ^[A-Z0-9]+$
+    business_date: ^[0-9]{8}$
+  note: Filename identity patterns are configuration constants for this source. The engine applies whatever
+    patterns are declared here; it does not embed source-specific catalogues or property allow-lists.
+field_contracts:
+  LM:
+    required_fields:
+    - REVENUE
+    - NO_ROOMS
+    - IND_DEDUCT_ROOMS
+    - IND_NON_DEDUCT_ROOMS
+    - GRP_DEDUCT_ROOMS
+    - GRP_NON_DEDUCT_ROOMS
+    - NO_PERSONS
+    - ARRIVAL_ROOMS
+    - DEPARTURE_ROOMS
+    - COMPLIMENTARY_ROOMS
+    - HOUSE_USE_ROOMS
+    - DAY_USE_ROOMS
+    - NO_SHOW_ROOMS
+    - INVENTORY_ROOMS
+    - CONSIDERED_DATE
+    - CHAR_CONSIDERED_DATE
+    - IND_DEDUCT_REVENUE
+    - IND_NON_DEDUCT_REVENUE
+    - GRP_NON_DEDUCT_REVENUE
+    - GRP_DEDUCT_REVENUE
+    - OWNER_ROOMS
+    - FF_ROOMS
+    - CF_OOO_ROOMS
+    - CF_CALC_OCC_ROOMS
+    - CF_CALC_INV_ROOMS
+    - CF_AVERAGE_ROOM_RATE
+    - CF_OCCUPANCY
+    - CF_IND_DED_REV
+    - CF_IND_NON_DED_REV
+    - CF_BLK_DED_REV
+    - CF_BLK_NON_DED_REV
+    required_non_null_fields:
+    - REVENUE
+    - NO_ROOMS
+    - INVENTORY_ROOMS
+    - CONSIDERED_DATE
+    - CHAR_CONSIDERED_DATE
+    - CF_CALC_OCC_ROOMS
+    - CF_CALC_INV_ROOMS
+    - CF_AVERAGE_ROOM_RATE
+    - CF_OCCUPANCY
+    nullable_fields:
+    - NO_SHOW_ROOMS
+    expected_always_null_fields: []
+    extra_fields_disposition: PASS_WITH_STRUCTURE_CHANGE
+    missing_required_field_disposition: FAIL
+    unique_key_fields:
+    - CONSIDERED_DATE
+    min_rows: 1
+  PM:
+    note: PM field contract is expressed via common_field_definitions + layout additional_field_definitions
+      (presence/value_required).
+    extra_fields_disposition: PASS_WITH_STRUCTURE_CHANGE
+    missing_required_field_disposition: FAIL
+common_field_definitions:
+  LM:
+  - field: REVENUE
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: NO_ROOMS
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: IND_DEDUCT_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: IND_NON_DEDUCT_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: GRP_DEDUCT_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: GRP_NON_DEDUCT_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: NO_PERSONS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: ARRIVAL_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: DEPARTURE_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: COMPLIMENTARY_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: HOUSE_USE_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: DAY_USE_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: NO_SHOW_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    note: Declared nullable in LM seed contract.
+  - field: INVENTORY_ROOMS
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CONSIDERED_DATE
+    structural_role: business_date
+    presence: required
+    value_required: true
+    datatype: date
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^\d{2}-[A-Z]{3}-\d{2}$
+    note: LM business date. Seed format DD-MMM-YY.
+  - field: CHAR_CONSIDERED_DATE
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+  - field: IND_DEDUCT_REVENUE
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: IND_NON_DEDUCT_REVENUE
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: GRP_NON_DEDUCT_REVENUE
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: GRP_DEDUCT_REVENUE
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: OWNER_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: FF_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_OOO_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_CALC_OCC_ROOMS
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_CALC_INV_ROOMS
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_AVERAGE_ROOM_RATE
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_OCCUPANCY
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_IND_DED_REV
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_IND_NON_DED_REV
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_BLK_DED_REV
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_BLK_NON_DED_REV
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  PM:
+  - field: C9
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: integer
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    note: CANDIDATE reservation_reference; C93 is an alternative. Requires corpus confirmation.
+    classification: candidate
+    candidate_role: reservation_reference
+    evidence_status: corpus_validation_pending
+    validation_phase: phase_0_observe
+  - field: C12
+    structural_role: business_date
+    presence: required
+    value_required: true
+    datatype: date
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^\d{2}-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-\d{2}$
+    note: CONFIRMED. Matches filename business date against filename identity checks in observed samples.
+    classification: canonical
+    evidence_status: prior_confirmed_pending_corpus_revalidation
+    validation_phase: phase_0_observe
+  - field: C15
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: date
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^\d{2}-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-\d{2}$
+    note: CANDIDATE arrival_date; ordering vs C18 not confirmed across corpus.
+    classification: candidate
+    candidate_role: arrival_date
+    evidence_status: corpus_validation_pending
+    validation_phase: phase_0_observe
+  - field: C18
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: date
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^\d{2}-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-\d{2}$
+    note: CANDIDATE departure_date; ordering vs C15 not confirmed across corpus.
+    classification: candidate
+    candidate_role: departure_date
+    evidence_status: corpus_validation_pending
+    validation_phase: phase_0_observe
+  - field: C21
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: room_type candidate. C21/C24 pair is unresolved.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C24
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: room_type candidate. C21/C24 pair is unresolved.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C27
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: integer
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+    note: Informational / unclassified pending corpus discovery.
+  - field: C30
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: integer
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+    note: Informational / unclassified pending corpus discovery.
+  - field: C33
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    note: CANDIDATE net_or_pre_tax_amount. Sometimes equals C48 but not consistently. Must not be treated
+      as charge_amount.
+    classification: candidate
+    candidate_role: net_or_pre_tax_amount
+    evidence_status: corpus_validation_pending
+    validation_phase: phase_0_observe
+  - field: C36
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    note: CANDIDATE related_amount. Not charge_amount; C48 is the leading charge_amount candidate.
+    classification: candidate
+    candidate_role: related_amount
+    evidence_status: corpus_validation_pending
+    validation_phase: phase_0_observe
+  - field: C39
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: quarantine_or_redact
+    participates_in_signature: true
+    classification: sensitive
+    detection:
+    - masked_payment_card_number
+    note: SENSITIVE. May contain company/city-ledger names OR masked payment-card data. Pattern-based
+      detection only; not a global deny. Not a business-role mapping.
+    evidence_status: pattern_policy_active
+    validation_phase: phase_0_structure
+  - field: C42
+    structural_role: charge_code
+    presence: required
+    value_required: true
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: CONFIRMED. Property-specific transaction code identifier, paired with C45. Typed as string so
+      values such as A100, ROOM-UPSELL, and 0142 remain valid and leading zeros are preserved. Opaque
+      to Phase 0. C42 may participate in validation and identity-resolution gating (required_for_unknown_structure
+      / charge_code) but is not permitted to propagate for an unknown structure signature; only property_code
+      and business_date identity roles may propagate when the signature is unknown.
+    classification: canonical
+    evidence_status: prior_confirmed_pending_corpus_revalidation
+    validation_phase: phase_0_observe
+  - field: C45
+    structural_role: charge_description
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: CONFIRMED. Property-specific label paired with C42.
+    classification: canonical
+    evidence_status: prior_confirmed_pending_corpus_revalidation
+    validation_phase: phase_0_observe
+  - field: C48
+    structural_role: charge_amount
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    note: CONFIRMED charge_amount (posted transaction value). Promoted from candidate in v1.7 per operator
+      decision. C48 is the canonical charge_amount assignment.
+    classification: canonical
+    evidence_status: promoted_v1_7_operator_confirmed
+    validation_phase: phase_0_observe
+    compared_fields:
+    - C33
+    - C36
+  - field: C51
+    structural_role: property_code
+    presence: required
+    value_required: true
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: CONFIRMED. Matches filename property against filename identity checks in observed samples.
+    classification: canonical
+    evidence_status: prior_confirmed_pending_corpus_revalidation
+    validation_phase: phase_0_observe
+  - field: C54
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Duplicates C51 in all observed data.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C57
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+    note: Informational / unclassified pending corpus discovery.
+  - field: C60
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+    note: Informational / unclassified pending corpus discovery.
+  - field: C63
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+    note: Informational / unclassified pending corpus discovery.
+  - field: C66
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Y/N flag.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C69
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: integer
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+    note: Informational / unclassified pending corpus discovery.
+  - field: C72
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: employee_identifier candidate. Carries system tokens (*MARSHA*, *HILSTAR*) as well as user IDs.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C75
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: employee_identifier candidate.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C78
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: market_segment candidate.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C81
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: market_segment candidate.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C84
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: market_segment candidate.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C87
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Empty in 100% of observed rows. Not declared always-null; presence is structural.
+    classification: unused
+    evidence_status: structurally_present_typically_empty
+    validation_phase: phase_0_structure
+  - field: C90
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Empty in 100% of observed rows. MUST NOT be declared numeric.
+    classification: unused
+    evidence_status: structurally_present_typically_empty
+    validation_phase: phase_0_structure
+  - field: C93
+    structural_role: external_reference
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: CONFIRMED string. Integer at four properties, hyphenated composite at SOFHI. Numeric datatype
+      would fail.
+    classification: canonical
+    evidence_status: prior_confirmed_pending_corpus_revalidation
+    validation_phase: phase_0_observe
+  - field: C96
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+    note: Informational / unclassified pending corpus discovery.
+  - field: C99
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Populated at TIAMC only (3.2%). Not always-null.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C102
+    structural_role: quantity
+    presence: expected
+    value_required: false
+    datatype: integer
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    note: CONFIRMED. Negative values observed (reversals).
+    classification: canonical
+    evidence_status: prior_confirmed_pending_corpus_revalidation
+    validation_phase: phase_0_observe
+  - field: C105
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: 'Content convention varies by property: department codes at some, user IDs at others. Not safely
+      role-assignable.'
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_0_observe
+  - field: C108
+    structural_role: reason_code
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: CONFIRMED. 13-value vocabulary across 5 properties.
+    classification: canonical
+    evidence_status: prior_confirmed_pending_corpus_revalidation
+    validation_phase: phase_0_observe
+validation:
+  spec: artifact_pins.validation_report_spec
+  disposition_states:
+  - PASS
+  - PASS_WITH_QUARANTINE
+  - PASS_WITH_STRUCTURE_CHANGE
+  - DEGRADED
+  - FAIL
+  rule_families:
+  - OPERA-ING-PHY
+  - OPERA-ING-FN
+  - OPERA-ING-STR
+  - OPERA-ING-ROW
+  - OPERA-ING-VAL
+  - OPERA-ING-ID
+  rule_catalogue: artifact_pins.rule_catalogue
+  rule_authority: rule_catalogue
+  row_quarantine_triggers:
+  - A field with presence:required is absent
+  - A field with presence:required and value_required:true is null or blank
+  - A value fails its declared datatype format assertion
+  - The row does not contain the required structural element set
+  - A required structural role cannot be resolved for the row
+  row_quarantine_non_triggers:
+  - A charge code has not been seen before
+  - A charge code differs from another property's
+  - A charge description is property-specific
+  - No business classification has been assigned
+  - An undeclared node is present
+  - A field with value_required:false is empty
+  - A field with presence:expected is absent
+  fail_conditions:
+  - File missing or empty
+  - Malformed XML
+  - Root node is not OSR_LANDSCAPE
+  - Record node G_C9 absent
+  - Zero records
+  - Property cannot be resolved
+  - Report type cannot be resolved
+  - Business date cannot be resolved
+  - Identity conflict between filename, path and content
+  - Duplicate file hash
+  - A required structural role cannot be resolved for the file
+  - No valid rows remain
+  - LM root node is not HISTORY_FORECAST
+  - LM record node G_CONSIDERED_DATE absent
+  - Incomplete LM+PM batch for a business date
+  outcomes:
+    PASS: File and all rows passed. Structure matches the approved configuration.
+    PASS_WITH_QUARANTINE: File processed. Some rows quarantined.
+    PASS_WITH_STRUCTURE_CHANGE: File processed successfully. Structure does not exactly match any approved
+      layout signature, but required canonical roles were safely resolved. Undeclared and deny-listed
+      fields were captured in Bronze and not propagated. Engineering review required.
+    FAIL: Unsafe to process. Includes hard fail conditions, or an unknown structure where required canonical
+      roles cannot be safely resolved.
+    DEGRADED: File processed with recoverable operational issues (resolvable non-standard filename, missing
+      optional field, metadata warning).
+  duplicate_rules:
+    LM:
+      file_hash_duplicate_behavior: FAIL
+      unique_key_fields:
+      - CONSIDERED_DATE
+      duplicate_key_severity: FAIL
+      duplicate_threshold_percent: 0
+    PM:
+      file_hash_duplicate_behavior: FAIL
+      row_duplicate_behavior: INFORMATIONAL
+      note: No column in the PM extract is unique per row. Exact duplicate rows occur legitimately (repeat
+        postings) at 1-67% across observed files. Duplicate counts are reported only and never degrade
+        or fail the file. Deferred pending the canonical transaction-identity strategy.
+health_card:
+  version: '1.0'
+  source: validation_report rollups only
+  scoring: out_of_scope_for_confluence_breakdown
+  fields:
+  - structural_conformance
+  - report_coverage
+  - row_integrity
+  - pii_exposure
+  - identity_consistency
+  - remediation_open
+  note: Confidence may appear as a single NN/100 metric on Confluence. Do not publish a PM confidence-score
+    dimension breakdown.
+layouts:
+- id: LM_HISTORY_FORECAST_31f_190d5aa2de52bf48
+  status: DRAFT
+  description: Opera Location Metrics HISTORY_FORECAST / G_CONSIDERED_DATE structure (31 declared metric
+    nodes). Seeded from LM_config.json; fingerprint is presence-based (root + record + sorted declared
+    field nodes).
+  report_type: LM
+  source_report_name: HISTORY_FORECAST
+  legacy_configuration_id: OPERA55_LM
+  observed_at_properties: []
+  structure_signature: 190d5aa2de52bf48
+  field_count: 31
+  field_order:
+  - REVENUE
+  - NO_ROOMS
+  - IND_DEDUCT_ROOMS
+  - IND_NON_DEDUCT_ROOMS
+  - GRP_DEDUCT_ROOMS
+  - GRP_NON_DEDUCT_ROOMS
+  - NO_PERSONS
+  - ARRIVAL_ROOMS
+  - DEPARTURE_ROOMS
+  - COMPLIMENTARY_ROOMS
+  - HOUSE_USE_ROOMS
+  - DAY_USE_ROOMS
+  - NO_SHOW_ROOMS
+  - INVENTORY_ROOMS
+  - CONSIDERED_DATE
+  - CHAR_CONSIDERED_DATE
+  - IND_DEDUCT_REVENUE
+  - IND_NON_DEDUCT_REVENUE
+  - GRP_NON_DEDUCT_REVENUE
+  - GRP_DEDUCT_REVENUE
+  - OWNER_ROOMS
+  - FF_ROOMS
+  - CF_OOO_ROOMS
+  - CF_CALC_OCC_ROOMS
+  - CF_CALC_INV_ROOMS
+  - CF_AVERAGE_ROOM_RATE
+  - CF_OCCUPANCY
+  - CF_IND_DED_REV
+  - CF_IND_NON_DED_REV
+  - CF_BLK_DED_REV
+  - CF_BLK_NON_DED_REV
+  additional_field_definitions:
+  - field: REVENUE
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: NO_ROOMS
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: IND_DEDUCT_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: IND_NON_DEDUCT_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: GRP_DEDUCT_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: GRP_NON_DEDUCT_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: NO_PERSONS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: ARRIVAL_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: DEPARTURE_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: COMPLIMENTARY_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: HOUSE_USE_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: DAY_USE_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: NO_SHOW_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+    note: Declared nullable in LM seed contract.
+  - field: INVENTORY_ROOMS
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CONSIDERED_DATE
+    structural_role: business_date
+    presence: required
+    value_required: true
+    datatype: date
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^\d{2}-[A-Z]{3}-\d{2}$
+    note: LM business date. Seed format DD-MMM-YY.
+  - field: CHAR_CONSIDERED_DATE
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+  - field: IND_DEDUCT_REVENUE
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: IND_NON_DEDUCT_REVENUE
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: GRP_NON_DEDUCT_REVENUE
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: GRP_DEDUCT_REVENUE
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: OWNER_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: FF_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_OOO_ROOMS
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_CALC_OCC_ROOMS
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_CALC_INV_ROOMS
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_AVERAGE_ROOM_RATE
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_OCCUPANCY
+    structural_role: null
+    presence: required
+    value_required: true
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: canonical
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_IND_DED_REV
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_IND_NON_DED_REV
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_BLK_DED_REV
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  - field: CF_BLK_NON_DED_REV
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: decimal
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    classification: informational
+    evidence_status: seeded_from_lm_config
+    validation_phase: phase_0_structure
+    format: ^-?(?:\d+(?:\.\d+)?|\.\d+)$
+  required_non_null_fields:
+  - REVENUE
+  - NO_ROOMS
+  - INVENTORY_ROOMS
+  - CONSIDERED_DATE
+  - CHAR_CONSIDERED_DATE
+  - CF_CALC_OCC_ROOMS
+  - CF_CALC_INV_ROOMS
+  - CF_AVERAGE_ROOM_RATE
+  - CF_OCCUPANCY
+  nullable_fields:
+  - NO_SHOW_ROOMS
+  expected_always_null_fields: []
+  pii_rules:
+    deny_list: []
+    extends_global: true
+- id: base_34_field
+  status: DRAFT
+  description: 34-field base PM structure (C9 through C108).
+  legacy_configuration_id: OPERA55_PM_V1
+  observed_at_properties:
+  - PTYRI
+  - SALCY
+  - SOFHI
+  - TIAMC
+  structure_signature: 078c7b13a4dceb24
+  field_count: 34
+  additional_field_definitions: []
+  pii_rules:
+    deny_list: []
+    extends_global: true
+    note: Effective deny list = global pii_rules.deny_list ∪ this list. Base layout declares no additional
+      PII fields.
+  report_type: PM
+  source_report_name: OSR_LANDSCAPE / G_C9
+- id: extended_38_field
+  status: DRAFT
+  description: 38-field extended PM structure. Same C9-C108 base plus C111, C114, C117, C120. Concurrent
+    with base_34_field; does not supersede it.
+  legacy_configuration_id: OPERA55_PM_V2
+  observed_at_properties:
+  - SRQRZ
+  structure_signature: 40fe3b3966b60fdf
+  field_count: 38
+  additional_field_definitions:
+  - field: C111
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Empty in 100% of observed rows. Structural presence distinguishes this configuration.
+    classification: unused
+    evidence_status: structurally_present_typically_empty
+    validation_phase: phase_0_structure
+  - field: C114
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: deny
+    participates_in_signature: true
+    note: FREE-TEXT GUEST NOTES. Populated in 100% of rows, up to 494 chars. Contains guest names, room
+      numbers and commercial negotiations. Must never propagate.
+    classification: prohibited
+    evidence_status: policy_confirmed
+    validation_phase: phase_0_structure
+  - field: C117
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Empty in 100% of observed rows.
+    classification: unused
+    evidence_status: structurally_present_typically_empty
+    validation_phase: phase_0_structure
+  - field: C120
+    structural_role: null
+    presence: expected
+    value_required: false
+    datatype: string
+    suppressible: false
+    pii_policy: allow
+    participates_in_signature: true
+    note: Y/N flag.
+    classification: informational
+    evidence_status: discovery_pending
+    validation_phase: phase_1
+  pii_rules:
+    deny_list: []
+    extends_global: true
+    note: Effective deny list = global pii_rules.deny_list ∪ this list. C114 is classified globally as
+      known PII and remains blocked even when this layout is not selected.
+  report_type: PM
+  source_report_name: OSR_LANDSCAPE / G_C9
+routing:
+  bronze: /bronze/{property_id}/{report_type}/{business_date}/{validation_run_id}/{original_filename}
+  pass: /phase0/validated/{property_id}/{report_type}/{business_date}/{validation_run_id}/{original_filename}
+  structure_change: /phase0/structure_change/{property_id}/{report_type}/{business_date}/{validation_run_id}/{original_filename}
+  degraded: /phase0/degraded/{property_id}/{report_type}/{business_date}/{validation_run_id}/{original_filename}
+  fail: /phase0/quarantine/{property_id}/{report_type}/{business_date}/{validation_run_id}/{original_filename}
+  row_quarantine: /phase0/quarantine_rows/{property_id}/{report_type}/{business_date}/{validation_run_id}/failed_records.json
+  structure_change_report: /phase0/structure_reports/{property_id}/{report_type}/{business_date}/{validation_run_id}/structure_change.json
+activation_blocked_by:
+- id: observe_only
+  reason: Phase 0 observe-only; canonical propagation is blocked for all roles.
+  blocks_ingestion: false
+  blocks_bronze_capture: false
+  blocks_structural_validation: false
+  blocks_layout_selection: false
+  blocks_canonical_role_activation: true
+  blocks_canonical_propagation_of_role: true
+  allows_candidate_evidence_collection: true
+- id: thin_seed_corpus
+  reason: v1.6 seeded for onboarding property ASUSI; multi-property fingerprint stability is unproven.
+  blocks_canonical: true
+  blocks_observe_only_validation: false
+out_of_scope:
+  note: Handled elsewhere. Not Phase 0 responsibilities.
+  items:
+  - Charge-code interpretation / revenue classification
+  - Property-specific upsell / agent-id business rules
+  - KPI layer / BookMax reconciliation
+  - Canonical writes
+  - Confidence-score dimension breakdown on Confluence
+known_residual_risk:
+  id: ORDINAL_SHIFT_ROLE_DRIFT
+  description: Oracle Reports names data-model columns by ordinal position in the report SELECT. A column
+    inserted mid-SELECT shifts every subsequent C-number. The change presents as additive (nodes added,
+    none removed, all declared nodes still present) while a structural role silently points at a different
+    column.
+  detectable_by:
+  - Datatype assertion failure where the new column has a different type
+  - Format assertion failure
+  - Structure-change report showing additional nodes
+  not_detectable_by: Any automated check, where the displaced column has the same datatype and format.
+    A decimal replaced by a different decimal will pass every validation in this configuration.
+  mitigation: Structure-change reports must be actioned rather than filed. The ageing schedule exists
+    for this reason.
+  upstream_cure: Mandate aliased columns in the Opera report build standard (SELECT x AS AGENT_ID) so
+    elements carry semantic names and ordinal position becomes irrelevant.
